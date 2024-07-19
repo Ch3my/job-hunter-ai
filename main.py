@@ -2,9 +2,10 @@ import sqlite3
 import tkinter as tk
 from tkinter import ttk
 import threading
+from tkinter import messagebox
 import webbrowser
 
-from db_operations import create_table
+from db_operations import check_table_exists, create_table, select_jobs, truncate_table, update_job_status
 from job_hunt import job_hunt
 
 class JobDatabaseGUI:
@@ -13,16 +14,33 @@ class JobDatabaseGUI:
         self.master.title("Job Database Navigator")
         self.master.geometry("800x800")
 
-        self.db_path = 'jobs.db'  # Store the database path
-        self.conn = self.create_connection()
-        self.cursor = self.conn.cursor()
-
-        create_table(self.conn)
+        create_table()
         self.create_widgets()
+        self.create_menu()
         self.load_jobs()
 
-    def create_connection(self):
-        return sqlite3.connect(self.db_path, check_same_thread=False)
+    def create_menu(self):
+        menubar = tk.Menu(self.master)
+        self.master.config(menu=menubar)
+
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Htas", menu=file_menu)
+        file_menu.add_command(label="Vaciar DB", command=self.call_vaciar_db)
+
+    def call_vaciar_db(self):
+        # Show a confirmation dialog
+        confirm = messagebox.askyesno("Confirmar", "¿Estás seguro de que quieres vaciar la tabla de trabajos? Esta acción no se puede deshacer.")
+        if confirm:
+            success, message = truncate_table()
+            if success:
+                messagebox.showinfo("Éxito", message)
+                # If you have any UI elements that display job data, refresh them here
+                self.refresh_jobs()  # Assuming you have this method to refresh the job list in the UI
+            else:
+                messagebox.showerror("Error", message)
+        else:
+            messagebox.showinfo("Cancelado", "La operación ha sido cancelada.")
     
     def open_url(self):
         url = self.url_var.get()
@@ -116,13 +134,11 @@ class JobDatabaseGUI:
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        # Check if the table exists
-        self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='jobs'")
-        table_exists = self.cursor.fetchone()
+        table_exists = check_table_exists()
 
         if table_exists:
-            self.cursor.execute("SELECT title, company, applied, createdAt FROM jobs order by createdAt desc")
-            for row in self.cursor.fetchall():
+            rows = select_jobs()
+            for row in rows:
                 self.tree.insert('', 'end', values=row)
         else:
             print("The 'jobs' table doesn't exist. Please make sure you've run your job scraping script first.")
@@ -149,9 +165,7 @@ class JobDatabaseGUI:
         record = item['values']
         new_status = self.applied_var.get()
 
-        # Update database
-        self.cursor.execute("UPDATE jobs SET applied=? WHERE title=? AND company=?", (new_status, record[0], record[1]))
-        self.conn.commit()
+        update_job_status(new_status, record[0], record[1])
 
         # Update treeview
         self.tree.item(selected_item, values=(record[0], record[1], new_status, record[3]))
@@ -162,21 +176,13 @@ class JobDatabaseGUI:
         thread.start()
 
     def run_job_hunt(self):
-        # Create a new database connection for this thread
-        thread_conn = self.create_connection()
-        try:
-            job_hunt(thread_conn)  # Pass the connection to job_hunt
-        finally:
-            thread_conn.close()  # Ensure the connection is closed
+        job_hunt()
         self.master.after(0, self.refresh_jobs)  # Schedule job refresh on the main thread
 
     def refresh_jobs(self):
         self.load_jobs()  # Reload jobs from the database
         self.thread_button.config(state='normal')  # Re-enable the button
-        print("Job hunt completed and jobs refreshed!")
-
-    def __del__(self):
-        self.conn.close()
+        # print("Job hunt completed and jobs refreshed!")
 
 if __name__ == "__main__":
     root = tk.Tk()

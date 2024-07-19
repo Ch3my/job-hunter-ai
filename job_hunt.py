@@ -3,7 +3,7 @@ from db_operations import create_table, insert_job
 from functions import save_to_json
 from search_jobs import get_jobs
 
-def job_hunt(conn):
+def job_hunt():
     # Obtenemos primeros 25 jobs
     jobs = get_jobs()
 
@@ -16,7 +16,7 @@ def job_hunt(conn):
             continue
 
         # Try to insert the job into the database
-        if insert_job(conn, job):
+        if insert_job(job):
             # Only print if the job was successfully inserted (i.e., it's new)
             print(job["title"] + " - " + job["companyName"])
             print(job["jobPostingUrl"])
