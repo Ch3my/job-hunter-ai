@@ -1,11 +1,10 @@
-import sqlite3
 import tkinter as tk
 from tkinter import ttk
 import threading
 from tkinter import messagebox
 import webbrowser
 
-from db_operations import check_table_exists, create_table, select_jobs, truncate_table, update_job_status
+from db_operations import check_table_exists, create_table, delete_job, select_jobs, select_one_job, truncate_table, update_job_status
 from job_hunt import job_hunt
 
 class JobDatabaseGUI:
@@ -46,7 +45,23 @@ class JobDatabaseGUI:
         url = self.url_var.get()
         if url:
             webbrowser.open(url)
+
+    def delete_job_fn(self):
+        confirm = messagebox.askyesno("Confirmar", "¿Estás seguro de que quieres Eliminar este trabajo? Esta acción no se puede deshacer.")
+        if confirm:
+            # Al haber hecho click estas variables deben estar actualizadas
+            delete_job(self.title_var.get(), self.company_var.get())
+            # Empty details variables
+            self.reset_job_details()
+            self.refresh_jobs()
     
+    def reset_job_details(self):
+        self.title_var.set("")
+        self.company_var.set("")
+        self.url_var.set("")
+        self.applied_var.set("")
+        self.description_text.delete('1.0', tk.END)
+
     def create_widgets(self):
         # Create a frame to hold the Treeview and scrollbar
         tree_frame = ttk.Frame(self.master)
@@ -91,6 +106,9 @@ class JobDatabaseGUI:
 
         ttk.Label(self.details_frame, text='Title:').grid(row=0, column=0, sticky='e', padx=5, pady=2)
         ttk.Entry(self.details_frame, textvariable=self.title_var, state='readonly', width=50).grid(row=0, column=1, padx=5, pady=2, sticky="we")
+
+        self.delete_job_btn = ttk.Button(self.details_frame, text="Delete Job", command=self.delete_job_fn)
+        self.delete_job_btn.grid(row=0, column=2, padx=5, pady=2)
 
         ttk.Label(self.details_frame, text='Company:').grid(row=1, column=0, sticky='e', padx=5, pady=2)
         ttk.Entry(self.details_frame, textvariable=self.company_var, state='readonly', width=50).grid(row=1, column=1, padx=5, pady=2, sticky="we")
@@ -150,10 +168,8 @@ class JobDatabaseGUI:
             self.title_var.set(record[0])
             self.company_var.set(record[1])
             self.applied_var.set(record[2])
-
             # Fetch additional details
-            self.cursor.execute("SELECT description, joburl FROM jobs WHERE title=? AND company=?", (record[0], record[1]))
-            details = self.cursor.fetchone()
+            details = select_one_job(record[0], record[1])
             if details:
                 self.description_text.delete('1.0', tk.END)
                 self.description_text.insert(tk.END, details[0])
@@ -176,13 +192,22 @@ class JobDatabaseGUI:
         thread.start()
 
     def run_job_hunt(self):
-        job_hunt()
-        self.master.after(0, self.refresh_jobs)  # Schedule job refresh on the main thread
+        # TODO. Quiza entregar info del error al usuario
+        # por ahora solo reactivamos boton
+        try:
+            job_hunt()
+            self.master.after(0, self.refresh_jobs)  # Schedule job refresh on the main thread
+        except Exception as e:
+            print(f"An error occurred during job hunt: {str(e)}")
+            # Optionally, you can log the error or show a message to the user
+            # self.show_error_message(f"Job hunt failed: {str(e)}")
+        finally:
+            # You can add any cleanup code here if needed
+             self.thread_button.config(state='normal')
 
     def refresh_jobs(self):
         self.load_jobs()  # Reload jobs from the database
         self.thread_button.config(state='normal')  # Re-enable the button
-        # print("Job hunt completed and jobs refreshed!")
 
 if __name__ == "__main__":
     root = tk.Tk()

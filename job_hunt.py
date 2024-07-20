@@ -22,4 +22,5 @@ def job_hunt():
             print(job["jobPostingUrl"])
             print("\n")
 
-    save_to_json(jobs)
+    # TODO. ver si guardamos o no quiza por parametro config.json podemos ver
+    # save_to_json(jobs)

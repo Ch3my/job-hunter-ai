@@ -74,6 +74,23 @@ def select_jobs():
     conn.close()
     return rows
 
+def select_one_job(title, company):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT description, joburl FROM jobs WHERE title=? AND company=?", (title, company))
+    rows = cursor.fetchone()
+    conn.close()
+    return rows
+
+def delete_job(title, company):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM jobs WHERE title=? AND company=?", (title, company))
+    rows_affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return rows_affected
+
 def check_table_exists():
     conn = create_connection()
     cursor = conn.cursor()
