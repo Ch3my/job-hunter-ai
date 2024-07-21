@@ -3,15 +3,17 @@ from tkinter import ttk
 import threading
 from tkinter import messagebox
 import webbrowser
+from datetime import datetime
 
-from db_operations import check_table_exists, create_table, delete_job, select_jobs, select_one_job, truncate_table, update_job_status
+from db_operations import check_table_exists, create_table, delete_job, insert_job, select_jobs, select_one_job, truncate_table, update_job_status
+from functions import append_to_log, open_log_file
 from job_hunt import job_hunt
 
 class JobDatabaseGUI:
     def __init__(self, master):
         self.master = master
         self.master.title("Job Database Navigator")
-        self.master.geometry("800x800")
+        self.master.geometry("800x700")
 
         create_table()
         self.create_widgets()
@@ -22,10 +24,13 @@ class JobDatabaseGUI:
         menubar = tk.Menu(self.master)
         self.master.config(menu=menubar)
 
-        # File menu
-        file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Htas", menu=file_menu)
-        file_menu.add_command(label="Vaciar DB", command=self.call_vaciar_db)
+        # Menu with submenu
+        #file_menu = tk.Menu(menubar, tearoff=0)
+        #menubar.add_cascade(label="Htas", menu=file_menu)
+        #file_menu.add_command(label="Vaciar DB", command=self.call_vaciar_db)
+
+        menubar.add_command(label="Vaciar DB", command=self.call_vaciar_db)
+        menubar.add_command(label="Ver Log", command=self.call_open_log)
 
     def call_vaciar_db(self):
         # Show a confirmation dialog
@@ -33,13 +38,11 @@ class JobDatabaseGUI:
         if confirm:
             success, message = truncate_table()
             if success:
-                messagebox.showinfo("Éxito", message)
+                self.update_status("Éxito: " + message)
                 # If you have any UI elements that display job data, refresh them here
                 self.refresh_jobs()  # Assuming you have this method to refresh the job list in the UI
             else:
-                messagebox.showerror("Error", message)
-        else:
-            messagebox.showinfo("Cancelado", "La operación ha sido cancelada.")
+                self.update_status("Error: " + message)
     
     def open_url(self):
         url = self.url_var.get()
@@ -105,19 +108,23 @@ class JobDatabaseGUI:
         self.applied_var = tk.StringVar()
 
         ttk.Label(self.details_frame, text='Title:').grid(row=0, column=0, sticky='e', padx=5, pady=2)
-        ttk.Entry(self.details_frame, textvariable=self.title_var, state='readonly', width=50).grid(row=0, column=1, padx=5, pady=2, sticky="we")
+        ttk.Entry(self.details_frame, textvariable=self.title_var, width=50).grid(row=0, column=1, padx=5, pady=2, sticky="we")
 
-        self.delete_job_btn = ttk.Button(self.details_frame, text="Delete Job", command=self.delete_job_fn)
-        self.delete_job_btn.grid(row=0, column=2, padx=5, pady=2)
+        # Add a new button for adding/updating job
+        self.add_update_button = ttk.Button(self.details_frame, text="Add/Update Job", command=self.add_update_job)
+        self.add_update_button.grid(row=0, column=2, padx=5, pady=2, sticky="e")
 
         ttk.Label(self.details_frame, text='Company:').grid(row=1, column=0, sticky='e', padx=5, pady=2)
-        ttk.Entry(self.details_frame, textvariable=self.company_var, state='readonly', width=50).grid(row=1, column=1, padx=5, pady=2, sticky="we")
+        ttk.Entry(self.details_frame, textvariable=self.company_var, width=50).grid(row=1, column=1, padx=5, pady=2, sticky="we")
+
+        self.delete_job_btn = ttk.Button(self.details_frame, text="Delete Job", command=self.delete_job_fn)
+        self.delete_job_btn.grid(row=1, column=2, padx=5, pady=2, sticky="e")
 
         ttk.Label(self.details_frame, text='URL:').grid(row=2, column=0, sticky='e', padx=5, pady=2)
-        ttk.Entry(self.details_frame, textvariable=self.url_var, state='readonly', width=50).grid(row=2, column=1, padx=5, pady=2, sticky="we")
+        ttk.Entry(self.details_frame, textvariable=self.url_var, width=50).grid(row=2, column=1, padx=5, pady=2, sticky="we")
         
         self.open_url_button = ttk.Button(self.details_frame, text="Visit Site", command=self.open_url)
-        self.open_url_button.grid(row=2, column=2, padx=5, pady=2)
+        self.open_url_button.grid(row=2, column=2, padx=5, pady=2, sticky="e")
 
         ttk.Label(self.details_frame, text='Applied:').grid(row=3, column=0, sticky='e', padx=5, pady=2)
         self.applied_combo = ttk.Combobox(self.details_frame, textvariable=self.applied_var, values=['Not applied', 'Applied', 'Discarded'])
@@ -146,6 +153,57 @@ class JobDatabaseGUI:
         # New button for threaded operation
         self.thread_button = ttk.Button(self.master, text="Hunt!", command=self.start_threaded_operation)
         self.thread_button.pack(pady=10)
+
+        self.status_bar = tk.Label(self.master, text="  Ready", bd=1, relief=tk.SUNKEN, anchor=tk.W)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def call_open_log(self):
+        result = open_log_file()
+        if result is not True:
+            self.update_status("Error al abrir el archivo de Log")    
+
+    def update_status(self, message):
+        # Siempre le pone la hora para saber cual fue el ultimo mensaje
+        # En caso de que quede un mensaje antiguo ahi y no hayan actualizaciones de estado
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.status_bar.config(text=f"  {current_time} - {message}")
+        self.status_bar.update_idletasks()
+
+    def add_update_job(self):
+        title = self.title_var.get()
+        company = self.company_var.get()
+        url = self.url_var.get()
+        description = self.description_text.get("1.0", tk.END).strip()
+        applied = self.applied_var.get()
+
+        if title and company:
+            # Check if the job already exists
+            existing_job = select_one_job(title, company)
+            if existing_job:
+                # Update existing job
+                # NOTA. por ahora solo actualiza el estado
+                success = update_job_status(applied, title, company)
+                if success:
+                    self.update_status("Job actualizado!")
+                    self.refresh_jobs()
+                #TODO else:
+            else:
+                # Insert new job
+                job = {
+                    'title': title,
+                    'companyName': company,
+                    'jobDescription': description,
+                    'jobPostingUrl': url,
+                    'applied': applied
+                }
+                success = insert_job(job)
+                if success:
+                    self.update_status("Job added successfully!")
+                    self.refresh_jobs()
+                else:
+                    self.update_status("Failed to add job. Please try again.")
+        else:
+            self.update_status("Title and Company are required fields.")
 
     def load_jobs(self):
         # Clear existing items in the treeview
@@ -176,6 +234,8 @@ class JobDatabaseGUI:
                 self.url_var.set(details[1])
 
     def update_applied_status(self, event):
+        if not self.tree.selection():
+            return
         selected_item = self.tree.selection()[0]
         item = self.tree.item(selected_item)
         record = item['values']
@@ -192,17 +252,13 @@ class JobDatabaseGUI:
         thread.start()
 
     def run_job_hunt(self):
-        # TODO. Quiza entregar info del error al usuario
-        # por ahora solo reactivamos boton
         try:
             job_hunt()
             self.master.after(0, self.refresh_jobs)  # Schedule job refresh on the main thread
         except Exception as e:
-            print(f"An error occurred during job hunt: {str(e)}")
-            # Optionally, you can log the error or show a message to the user
-            # self.show_error_message(f"Job hunt failed: {str(e)}")
+            self.update_status(f"An error occurred during job hunt: {str(e)}")
+            append_to_log(str(e))
         finally:
-            # You can add any cleanup code here if needed
              self.thread_button.config(state='normal')
 
     def refresh_jobs(self):

@@ -49,7 +49,7 @@ def insert_job(job):
         cursor.execute('''
         INSERT INTO jobs (title, company, description, joburl, applied, createdAt)
         VALUES (?, ?, ?, ?, ?, ?)
-        ''', (job['title'], job['companyName'], job['jobDescription'], job['jobPostingUrl'], 'Not applied', current_date))
+        ''', (job['title'], job['companyName'], job['jobDescription'], job['jobPostingUrl'], job['applied'], current_date))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -65,6 +65,7 @@ def update_job_status(new_status, title, company):
     cursor.execute("UPDATE jobs SET applied=? WHERE title=? AND company=?", (new_status, title, company))
     conn.commit()
     conn.close()
+    return True
 
 def select_jobs():
     conn = create_connection()

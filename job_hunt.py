@@ -1,7 +1,8 @@
 from ai import ask_ai
 from db_operations import create_table, insert_job
-from functions import save_to_json
+from functions import append_to_log, save_to_json
 from search_jobs import get_jobs
+import json
 
 def job_hunt():
     # Obtenemos primeros 25 jobs
@@ -10,6 +11,7 @@ def job_hunt():
     for job in jobs["jobs"]:
         response = ask_ai(job['jobDescription'])
         job['relevant'] = response  # This adds a new key-value pair to the job dictionary
+        job['applied'] = "Not applied"
 
     for job in jobs["jobs"]:
         if job['relevant'].lower() == "no-relevante":
@@ -24,3 +26,6 @@ def job_hunt():
 
     # TODO. ver si guardamos o no quiza por parametro config.json podemos ver
     # save_to_json(jobs)
+
+    # Guardamos lista completa en log.txt solo como historico
+    append_to_log(json.dumps(jobs, indent=2))
