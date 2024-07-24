@@ -5,7 +5,7 @@ from tkinter import messagebox
 import webbrowser
 from datetime import datetime
 
-from db_operations import check_table_exists, create_table, delete_job, insert_job, select_jobs, select_one_job, truncate_table, update_job_status
+from db_operations import check_table_exists, create_table, delete_job, get_jobs_stats, insert_job, select_jobs, select_one_job, truncate_table, update_job_status
 from functions import append_to_log, open_log_file
 from job_hunt import job_hunt
 
@@ -13,12 +13,14 @@ class JobDatabaseGUI:
     def __init__(self, master):
         self.master = master
         self.master.title("Job Database Navigator")
-        self.master.geometry("800x700")
-
+        self.master.geometry("1080x720")
+        self.center_window()
+    
         create_table()
         self.create_widgets()
         self.create_menu()
         self.load_jobs()
+        self.update_stats()
 
     def create_menu(self):
         menubar = tk.Menu(self.master)
@@ -57,6 +59,7 @@ class JobDatabaseGUI:
             # Empty details variables
             self.reset_job_details()
             self.refresh_jobs()
+            self.update_stats()
     
     def reset_job_details(self):
         self.title_var.set("")
@@ -66,18 +69,22 @@ class JobDatabaseGUI:
         self.description_text.delete('1.0', tk.END)
 
     def create_widgets(self):
+        # Configure the Treeview style
+        style = ttk.Style()    
+        style.configure("Treeview", font=('TkDefaultFont', 11))  # Adjust size as needed
+        # style.configure("Treeview.Heading", font=('TkDefaultFont', 12))  # Adjust size as needed
+
         # Create a frame to hold the Treeview and scrollbar
         tree_frame = ttk.Frame(self.master)
         tree_frame.pack(pady=10, padx=10, expand=True, fill='both')
 
-        # Create the Treeview with a smaller height to encourage scrolling
         self.tree = ttk.Treeview(tree_frame, columns=('Title', 'Company', 'Applied', "Created At"), show='headings', height=10)
         self.tree.heading('Title', text='Title')
         self.tree.heading('Company', text='Company')
         self.tree.heading('Applied', text='Applied')
         self.tree.heading('Created At', text='Created At')
 
-        self.tree.column('Title', width=300)  # Wider column for Title
+        self.tree.column('Title', width=500)  # Wider column for Title
         self.tree.column('Applied', width=100)
         
         # Create the scrollbar
@@ -96,9 +103,32 @@ class JobDatabaseGUI:
 
         self.tree.bind('<<TreeviewSelect>>', self.item_selected)
 
+        # New frame for statistics
+        self.stats_frame = ttk.Frame(self.master)
+        self.stats_frame.pack(pady=(0, 5), padx=10, fill='x')
+
+        # StringVars to hold the statistics
+        self.total_jobs_var = tk.StringVar()
+        self.applied_jobs_var = tk.StringVar()
+        self.discarded_jobs_var = tk.StringVar()
+        self.not_applied_jobs_var = tk.StringVar()
+
+        # Labels to display the statistics
+        ttk.Label(self.stats_frame, text='Total:').grid(row=0, column=0, sticky='w', padx=5, pady=2)
+        ttk.Label(self.stats_frame, textvariable=self.total_jobs_var, font=("TkDefaultFont", 11)).grid(row=0, column=1, sticky='w', padx=5, pady=2)
+
+        ttk.Label(self.stats_frame, text='Applied:').grid(row=0, column=2, sticky='w', padx=5, pady=2)
+        ttk.Label(self.stats_frame, textvariable=self.applied_jobs_var, font=("TkDefaultFont", 11)).grid(row=0, column=3, sticky='w', padx=5, pady=2)
+
+        ttk.Label(self.stats_frame, text='Discarded:').grid(row=0, column=4, sticky='w', padx=5, pady=2)
+        ttk.Label(self.stats_frame, textvariable=self.discarded_jobs_var, font=("TkDefaultFont", 11)).grid(row=0, column=5, sticky='w', padx=5, pady=2)
+
+        ttk.Label(self.stats_frame, text='Not Applied:').grid(row=0, column=6, sticky='w', padx=5, pady=2)
+        ttk.Label(self.stats_frame, textvariable=self.not_applied_jobs_var, font=("TkDefaultFont", 11)).grid(row=0, column=7, sticky='w', padx=5, pady=2)
+
         # Job Details
         self.details_frame = ttk.LabelFrame(self.master, text='Job Details')
-        self.details_frame.pack(pady=10, padx=10, fill='x')
+        self.details_frame.pack(pady=5, padx=10, fill='x')
 
         self.details_frame.columnconfigure(1, weight=1)
 
@@ -108,27 +138,26 @@ class JobDatabaseGUI:
         self.applied_var = tk.StringVar()
 
         ttk.Label(self.details_frame, text='Title:').grid(row=0, column=0, sticky='e', padx=5, pady=2)
-        ttk.Entry(self.details_frame, textvariable=self.title_var, width=50).grid(row=0, column=1, padx=5, pady=2, sticky="we")
+        ttk.Entry(self.details_frame, textvariable=self.title_var, width=50, font=('TkDefaultFont', 11)).grid(row=0, column=1, padx=5, pady=2, sticky="we")
 
-        # Add a new button for adding/updating job
+        ttk.Label(self.details_frame, text='Company:').grid(row=0, column=2, sticky='e', padx=5, pady=2)
+        ttk.Entry(self.details_frame, textvariable=self.company_var, width=50, font=('TkDefaultFont', 11)).grid(row=0, column=3, padx=5, pady=2, sticky="we")
+
         self.add_update_button = ttk.Button(self.details_frame, text="Add/Update Job", command=self.add_update_job)
-        self.add_update_button.grid(row=0, column=2, padx=5, pady=2, sticky="e")
+        self.add_update_button.grid(row=0, column=4, padx=5, pady=2, sticky="e")
 
-        ttk.Label(self.details_frame, text='Company:').grid(row=1, column=0, sticky='e', padx=5, pady=2)
-        ttk.Entry(self.details_frame, textvariable=self.company_var, width=50).grid(row=1, column=1, padx=5, pady=2, sticky="we")
+        ttk.Label(self.details_frame, text='URL:').grid(row=1, column=0, sticky='e', padx=5, pady=2)
+        ttk.Entry(self.details_frame, textvariable=self.url_var, width=50, font=('TkDefaultFont', 11)).grid(row=1, column=1, columnspan=3, padx=5, pady=2, sticky="we")
 
         self.delete_job_btn = ttk.Button(self.details_frame, text="Delete Job", command=self.delete_job_fn)
-        self.delete_job_btn.grid(row=1, column=2, padx=5, pady=2, sticky="e")
-
-        ttk.Label(self.details_frame, text='URL:').grid(row=2, column=0, sticky='e', padx=5, pady=2)
-        ttk.Entry(self.details_frame, textvariable=self.url_var, width=50).grid(row=2, column=1, padx=5, pady=2, sticky="we")
+        self.delete_job_btn.grid(row=1, column=4, padx=5, pady=2, sticky="e")
         
         self.open_url_button = ttk.Button(self.details_frame, text="Visit Site", command=self.open_url)
-        self.open_url_button.grid(row=2, column=2, padx=5, pady=2, sticky="e")
+        self.open_url_button.grid(row=2, column=4, padx=5, pady=2, sticky="e")
 
-        ttk.Label(self.details_frame, text='Applied:').grid(row=3, column=0, sticky='e', padx=5, pady=2)
-        self.applied_combo = ttk.Combobox(self.details_frame, textvariable=self.applied_var, values=['Not applied', 'Applied', 'Discarded'])
-        self.applied_combo.grid(row=3, column=1, padx=5, pady=2, sticky="w")
+        ttk.Label(self.details_frame, text='Applied:').grid(row=2, column=0, sticky='e', padx=5, pady=2)
+        self.applied_combo = ttk.Combobox(self.details_frame, font=('TkDefaultFont', 11), textvariable=self.applied_var, values=['Not applied', 'Applied', 'Discarded'])
+        self.applied_combo.grid(row=2, column=1, padx=5, pady=2, sticky="w")
         self.applied_combo.bind('<<ComboboxSelected>>', self.update_applied_status)
 
         # Description
@@ -140,7 +169,7 @@ class JobDatabaseGUI:
         text_frame.pack(expand=True, fill='both', padx=5, pady=5)
 
         # Create the Text widget
-        self.description_text = tk.Text(text_frame, wrap=tk.WORD, height=10)
+        self.description_text = tk.Text(text_frame, wrap=tk.WORD, height=10, font=('TkDefaultFont', 11))
         self.description_text.pack(side='left', expand=True, fill='both')
 
         # Create the scrollbar
@@ -186,6 +215,7 @@ class JobDatabaseGUI:
                 if success:
                     self.update_status("Job actualizado!")
                     self.refresh_jobs()
+                    self.update_stats()
                 #TODO else:
             else:
                 # Insert new job
@@ -200,10 +230,21 @@ class JobDatabaseGUI:
                 if success:
                     self.update_status("Job added successfully!")
                     self.refresh_jobs()
+                    self.update_stats()
                 else:
                     self.update_status("Failed to add job. Please try again.")
         else:
             self.update_status("Title and Company are required fields.")
+
+    def update_stats(self):
+        # Get the statistics from the get_jobs_stats function
+        stats = get_jobs_stats()
+
+        # Update the StringVars with the new statistics
+        self.total_jobs_var.set(str(stats['total']))
+        self.applied_jobs_var.set(str(stats['applied']))
+        self.discarded_jobs_var.set(str(stats['discarded']))
+        self.not_applied_jobs_var.set(str(stats['not_applied']))
 
     def load_jobs(self):
         # Clear existing items in the treeview
@@ -242,6 +283,7 @@ class JobDatabaseGUI:
         new_status = self.applied_var.get()
 
         update_job_status(new_status, record[0], record[1])
+        self.update_stats()
 
         # Update treeview
         self.tree.item(selected_item, values=(record[0], record[1], new_status, record[3]))
@@ -250,6 +292,26 @@ class JobDatabaseGUI:
         self.thread_button.config(state='disabled')  # Disable the button while the operation is running
         thread = threading.Thread(target=self.run_job_hunt)
         thread.start()
+
+    def center_window(self, width=1080, height=720, taskbar_offset=40):
+        # Get the screen width and height
+        screen_width = self.master.winfo_screenwidth()
+        screen_height = self.master.winfo_screenheight()
+
+        # Calculate the x and y coordinates for the Tk root window
+        x = (screen_width / 2) - (width / 2)
+        y = (screen_height / 2) - (height / 2) - (taskbar_offset / 2)
+
+        # Ensure the window doesn't go off the top of the screen
+        y = max(y, 0)
+
+        # Set the dimensions of the screen and where it is placed
+        self.master.geometry('%dx%d+%d+%d' % (width, height, int(x), int(y)))
+
+        # Make sure the window is brought to the front
+        self.master.lift()
+        self.master.attributes('-topmost', True)
+        self.master.after_idle(self.master.attributes, '-topmost', False)
 
     def run_job_hunt(self):
         try:

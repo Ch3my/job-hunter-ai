@@ -99,3 +99,37 @@ def check_table_exists():
     table_exists = cursor.fetchone()
     conn.close()
     return table_exists
+
+def get_jobs_stats():
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    # Get counts for each status
+    cursor.execute("SELECT applied, COUNT(*) as count FROM jobs GROUP BY applied")
+    rows = cursor.fetchall()
+    
+    # Get total count
+    cursor.execute("SELECT COUNT(*) as total FROM jobs")
+    total = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    # Initialize stats dictionary
+    stats = {
+        'total': total,
+        'applied': 0,
+        'discarded': 0,
+        'not_applied': 0
+    }
+    
+    # Process the results
+    for row in rows:
+        status, count = row
+        if status == 'Applied':
+            stats['applied'] = count
+        elif status == 'Discarded':
+            stats['discarded'] = count
+        elif status == 'Not applied':
+            stats['not_applied'] = count
+    
+    return stats
