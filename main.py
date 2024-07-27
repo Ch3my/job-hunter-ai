@@ -183,7 +183,7 @@ class JobDatabaseGUI:
         self.thread_button = ttk.Button(self.master, text="Hunt!", command=self.start_threaded_operation)
         self.thread_button.pack(pady=10)
 
-        self.status_bar = tk.Label(self.master, text="  Ready", bd=1, relief=tk.SUNKEN, anchor=tk.W)
+        self.status_bar = tk.Label(self.master, text="  Ready", bd=1, relief=tk.SUNKEN, anchor=tk.W, font=('TkDefaultFont', 10))
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def call_open_log(self):
@@ -314,9 +314,12 @@ class JobDatabaseGUI:
         self.master.after_idle(self.master.attributes, '-topmost', False)
 
     def run_job_hunt(self):
+        self.master.after(0, lambda: self.update_status("Searching Jobs..."))  # Schedule job refresh on the main thread
         try:
             job_hunt()
             self.master.after(0, self.refresh_jobs)  # Schedule job refresh on the main thread
+            self.master.after(0, self.update_stats)  # Schedule job refresh on the main thread
+            self.master.after(0, lambda: self.update_status("Ready"))  # Schedule job refresh on the main thread
         except Exception as e:
             self.update_status(f"An error occurred during job hunt: {str(e)}")
             append_to_log(str(e))

@@ -9,6 +9,7 @@ __pycache__/
 config.json
 jobs.db
 prompt.txt
+log.txt
 
 # Distribution / packaging
 .Python

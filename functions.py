@@ -39,7 +39,9 @@ def load_config():
             "rapidApiKey": "",
             "jobQuery": "contador",
             "jobLocation": "chile",
-            "jobPlace": "remote",
+            "workplaceType": "2",
+            "sortBy": "DD",
+            "jobType": "F",
         }
     
 def save_config(config):
