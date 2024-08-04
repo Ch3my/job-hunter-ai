@@ -16,7 +16,7 @@ def ask_ai(job_txt):
         [
             (
                 "system",
-                'Eres un asistente que se encarga de evaluar si un trabajo se adecua a los requerimientos, tu respuesta (en minuscula) es la clasificacion del trabajo (una de dos opciones) "relevante" o "no-relevante". Si no sabes si es relevante o no, contesta con "no-relevante"',
+                'Eres un asistente que se encarga de evaluar si un trabajo se adecua a los requerimientos, tu respuesta (en minuscula) es la clasificacion del trabajo (una de dos opciones) "relevante" o "no-relevante". Si no sabes si es relevante o no, contesta con "relevante"',
             ),
             ("user", prompt_template),
         ]

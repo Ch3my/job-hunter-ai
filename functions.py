@@ -42,6 +42,7 @@ def load_config():
             "workplaceType": "2",
             "sortBy": "DD",
             "jobType": "F",
+            "searchLocationId": "104621616" # Id de Chile
         }
     
 def save_config(config):
