@@ -6,7 +6,7 @@ from functions import read_file
 
 
 def ask_ai(job_txt):
-    llm = ChatOpenAI(model="gpt-5-mini-2025-08-07")
+    llm = ChatOpenAI(model="gpt-5-mini-2025-08-07", temperature=1)
 
     user_skills = read_file("prompt.txt")
 
